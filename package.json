@@ -1,0 +1,14 @@
+{
+  "name": "livestream-slack-bridge",
+  "version": "0.1.1",
+  "private": true,
+  "description": "Youtube live stream comments to Slack and vice versa",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "npm run build && node dist/index.js"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2"
+  }
+}
