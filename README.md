@@ -29,9 +29,12 @@ GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 GOOGLE_REDIRECT_URI=http://localhost:3400/oauth/google/callback
 GOOGLE_REFRESH_TOKEN=
+YOUTUBE_CHANNEL_ID=
 ```
 
 Use [.env.example](/home/justin/code/livestream-slack-bridge/.env.example) as the template.
+
+`YOUTUBE_CHANNEL_ID` is optional at first. After your first successful authorization, set it to the returned channel ID so future runs fail fast if the wrong Google account is authorized.
 
 ## Install
 
@@ -60,16 +63,17 @@ When the service starts successfully, it listens on `http://localhost:3400`.
 3. Sign in with the Google account that owns the YouTube channel.
 4. Approve the requested YouTube permission.
 5. After the callback succeeds, copy the printed `GOOGLE_REFRESH_TOKEN` into `.env`.
-6. Restart the service.
-7. Open `http://localhost:3400/youtube/me` to confirm the saved refresh token works.
+6. Copy the returned YouTube channel ID into `YOUTUBE_CHANNEL_ID` if you want to lock the bridge to that channel.
+7. Restart the service.
+8. Open `http://localhost:3400/youtube/me` to confirm the saved refresh token works.
 
 ## Routes
 
 - `GET /` shows the local authorization and verification URLs.
 - `GET /health` reports whether the service is up and whether a refresh token is configured at startup.
 - `GET /oauth/google/start` begins the Google OAuth flow.
-- `GET /oauth/google/callback` handles the Google redirect and verifies the YouTube account.
-- `GET /youtube/me` checks the configured refresh token against the authenticated YouTube channel.
+- `GET /oauth/google/callback` handles the Google redirect, preserves an existing refresh token if Google omits a new one, and verifies the YouTube account.
+- `GET /youtube/me` checks the configured refresh token against the authenticated YouTube channel and optionally enforces `YOUTUBE_CHANNEL_ID`.
 
 ## Next Steps
 

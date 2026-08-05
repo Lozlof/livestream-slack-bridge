@@ -25,6 +25,7 @@ const googleClientSecret = requireEnvironmentVariable(
 	"GOOGLE_CLIENT_SECRET",
 );
 const googleRedirectUri = requireEnvironmentVariable("GOOGLE_REDIRECT_URI");
+const expectedChannelId = process.env.YOUTUBE_CHANNEL_ID?.trim();
 
 const youtubeScope = "https://www.googleapis.com/auth/youtube.force-ssl";
 
@@ -102,12 +103,19 @@ app.get(
 			typeof request.query.error === "string"
 				? request.query.error
 				: undefined;
+		const oauthErrorDescription =
+			typeof request.query.error_description === "string"
+				? request.query.error_description
+				: undefined;
 
 		if (oauthError) {
 			response
 				.status(400)
 				.type("text/plain")
-				.send(`Google authorization failed: ${oauthError}`);
+				.send(
+					`Google authorization failed: ${oauthError}` +
+						(oauthErrorDescription ? `\n${oauthErrorDescription}` : ""),
+				);
 
 			return;
 		}
@@ -142,8 +150,12 @@ app.get(
 
 		try {
 			const { tokens } = await oauth2Client.getToken(code);
+			const refreshToken = tokens.refresh_token ?? configuredRefreshToken;
 
-			oauth2Client.setCredentials(tokens);
+			oauth2Client.setCredentials({
+				...tokens,
+				...(refreshToken ? { refresh_token: refreshToken } : {}),
+			});
 
 			const youtube = getYoutubeClient();
 			const channelResponse = await youtube.channels.list({
@@ -163,10 +175,21 @@ app.get(
 				return;
 			}
 
-			if (tokens.refresh_token) {
+			if (expectedChannelId && channel.id !== expectedChannelId) {
+				response
+					.status(403)
+					.type("text/plain")
+					.send(
+						`Wrong YouTube channel authorized. Expected ${expectedChannelId}, received ${channel.id}.`,
+					);
+
+				return;
+			}
+
+			if (refreshToken) {
 				console.log("\n==========================================");
 				console.log("SAVE THIS IN YOUR .env FILE:");
-				console.log(`GOOGLE_REFRESH_TOKEN=${tokens.refresh_token}`);
+				console.log(`GOOGLE_REFRESH_TOKEN=${refreshToken}`);
 				console.log("==========================================\n");
 			} else {
 				console.warn(
@@ -181,7 +204,7 @@ app.get(
 					`YouTube channel: ${channel.snippet?.title ?? "Unknown"}`,
 					`YouTube channel ID: ${channel.id ?? "Unknown"}`,
 					"",
-					tokens.refresh_token
+					refreshToken
 						? "The refresh token was printed in the service terminal."
 						: "No refresh token was returned. Check the service terminal.",
 					"",
@@ -221,6 +244,17 @@ app.get("/youtube/me", async (_request: Request, response: Response) => {
 
 		if (!channel) {
 			response.status(404).type("text/plain").send("No YouTube channel was found.");
+
+			return;
+		}
+
+		if (expectedChannelId && channel.id !== expectedChannelId) {
+			response
+				.status(403)
+				.type("text/plain")
+				.send(
+					`Wrong YouTube channel authorized. Expected ${expectedChannelId}, received ${channel.id}.`,
+				);
 
 			return;
 		}
